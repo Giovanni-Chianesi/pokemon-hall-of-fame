@@ -1,32 +1,76 @@
 # 🏆 Pokémon Hall of Fame Tracker
 
-<p center="align">
-  <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js" />
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white" alt="Prisma" />
-  <img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React" />
-  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
-  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
-</p>
-
-Uma aplicação Full-Stack desenvolvida para treinadores Pokémon registrarem seus times campeões da **League / Hall of Fame** através de múltiplos jogos e HackRoms. O sistema conta com uma arquitetura distribuída com API Node.js, microsserviço de análise estratégica em Python e interface moderna em React.
+> Aplicação Full-Stack em arquitetura de microsserviços para registrar, gerenciar e analisar times campeões do Hall da Fama de Pokémon (Jogos Oficiais e HackRoms).
 
 ---
 
-## 📐 Arquitetura do Sistema
+## 🏗️ Arquitetura do Sistema
 
 ```text
-               ┌──────────────────────────────┐
-               │    Frontend (React / Vite)   │
-               └──────────────┬───────────────┘
-                              │ HTTP (Porta 5173)
-                              ▼
-               ┌──────────────────────────────┐
-               │   API Backend (Node + TS)    │
-               └──────┬────────────────┬──────┘
-                      │                │
-  Prisma ORM (SQLite) │                │ HTTP (Porta 8000)
-                      ▼                ▼
-       ┌────────────────────┐   ┌──────────────────────────────┐
-       │   dev.db (SQLite)  │   │ Analyzer Service (FastAPI)   │
-       └────────────────────┘   └──────────────────────────────┘
+                  ┌──────────────────────────────┐
+                  │    Frontend (React + Vite)   │
+                  └──────────────┬───────────────┘
+                                 │
+                                 ▼
+                  ┌──────────────────────────────┐
+                  │   Backend API (Node + TS)    │
+                  └──────┬────────────────┬──────┘
+                         │                │
+     Prisma ORM (SQLite) │                │ HTTP
+                         ▼                ▼
+          ┌────────────────────┐   ┌──────────────────────────────┐
+          │   dev.db (SQLite)  │   │ Analyzer Service (FastAPI)   │
+          └────────────────────┘   └──────────────────────────────┘
+🧰 Tecnologias
+Back-end: Node.js, TypeScript, Express, Prisma ORM, SQLite
+
+Análise: Python, FastAPI, Uvicorn
+
+Front-end: React, TypeScript, Vite
+
+📌 Pré-requisitos
+Node.js v18+
+
+Python v3.10+
+
+Git
+
+⚡ Instalação e Execução
+1. Back-end (API Principal)
+Bash
+# Entrar na pasta do backend
+cd backend
+
+# Instalar dependências
+npm install
+
+# Configurar e sincronizar o banco de dados
+npx --no-install prisma generate
+npx --no-install prisma db push
+
+# Iniciar o servidor (Porta 3333)
+npm run dev
+2. Microsserviço de Análise (Python)
+Bash
+# Entrar na pasta do microsserviço
+cd analyzer-service
+
+# Criar e ativar ambiente virtual (Windows CMD)
+python -m venv venv
+.\venv\Scripts\activate
+
+# Instalar dependências
+pip install fastapi uvicorn requests
+
+# Iniciar o serviço (Porta 8000)
+python main.py
+3. Front-end (Interface Web)
+Bash
+# Entrar na pasta do frontend
+cd frontend
+
+# Instalar dependências
+npm install
+
+# Iniciar a aplicação
+npm run dev
