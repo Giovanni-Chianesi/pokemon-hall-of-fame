@@ -1,0 +1,16 @@
+# Node
+node_modules/
+dist/
+.env
+
+# Banco de Dados SQLite (opcional, para não sobrescrever o DB de quem clonar)
+backend/prisma/*.db
+backend/prisma/*.db-journal
+
+# Python
+analyzer-service/venv/
+analyzer-service/__pycache__/
+*.pyc
+
+# Vite / React
+frontend/dist/

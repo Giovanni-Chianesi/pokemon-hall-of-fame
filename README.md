@@ -1,76 +1,45 @@
-# 🏆 Pokémon Hall of Fame Tracker
+# 🏆 Pokémon Hall of Fame
 
-> Aplicação Full-Stack em arquitetura de microsserviços para registrar, gerenciar e analisar times campeões do Hall da Fama de Pokémon (Jogos Oficiais e HackRoms).
+> Uma aplicação full-stack para registrar equipes campeãs de Pokémon/ROM Hacks e gerar análises táticas automáticas.
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## ⚡ Tecnologias
 
-```text
-                  ┌──────────────────────────────┐
-                  │    Frontend (React + Vite)   │
-                  └──────────────┬───────────────┘
-                                 │
-                                 ▼
-                  ┌──────────────────────────────┐
-                  │   Backend API (Node + TS)    │
-                  └──────┬────────────────┬──────┘
-                         │                │
-     Prisma ORM (SQLite) │                │ HTTP
-                         ▼                ▼
-          ┌────────────────────┐   ┌──────────────────────────────┐
-          │   dev.db (SQLite)  │   │ Analyzer Service (FastAPI)   │
-          └────────────────────┘   └──────────────────────────────┘
-🧰 Tecnologias
-Back-end: Node.js, TypeScript, Express, Prisma ORM, SQLite
+- **Frontend:** React, Vite, Axios
+- **Backend:** Node.js, Express, TypeScript, Prisma ORM, SQLite
+- **Serviço de Análise:** Python, FastAPI, Uvicorn
 
-Análise: Python, FastAPI, Uvicorn
+---
 
-Front-end: React, TypeScript, Vite
+## ⚙️ Como Rodar
 
-📌 Pré-requisitos
-Node.js v18+
+O projeto precisa dos 3 serviços rodando ao mesmo tempo. Clone o repositório e abra **3 terminais**:
 
-Python v3.10+
-
-Git
-
-⚡ Instalação e Execução
-1. Back-end (API Principal)
-Bash
-# Entrar na pasta do backend
+### 1. Backend (Node.js)
+```bash
 cd backend
-
-# Instalar dependências
 npm install
-
-# Configurar e sincronizar o banco de dados
-npx --no-install prisma generate
-npx --no-install prisma db push
-
-# Iniciar o servidor (Porta 3333)
+npx prisma migrate dev
 npm run dev
-2. Microsserviço de Análise (Python)
-Bash
-# Entrar na pasta do microsserviço
-cd analyzer-service
-
-# Criar e ativar ambiente virtual (Windows CMD)
+# 🟢 Rodando em http://localhost:3333
+2. Análise (Python)Bashcd analyzer-service
 python -m venv venv
+
+# Windows:
 .\venv\Scripts\activate
+# Linux/macOS:
+# source venv/bin/activate
 
-# Instalar dependências
-pip install fastapi uvicorn requests
-
-# Iniciar o serviço (Porta 8000)
+pip install -r requirements.txt
 python main.py
-3. Front-end (Interface Web)
-Bash
-# Entrar na pasta do frontend
-cd frontend
-
-# Instalar dependências
+# 🟢 Rodando em http://localhost:8000
+3. Frontend (React)Bashcd frontend
 npm install
-
-# Iniciar a aplicação
 npm run dev
+# 🟢 Rodando em http://localhost:5173
+📌 Estrutura dos ServiçosPlaintextpokemon-hall-of-fame/
+├── backend/           # API REST em Node.js + Prisma (Porta 3333)
+├── analyzer-service/  # Microsserviço de Análise em Python (Porta 8000)
+└── frontend/          # Interface em React + Vite (Porta 5173)
+🔗 Endpoints PrincipaisServiçoMétodoRotaDescriçãoBackendPOST/teamsCadastra um novo time no bancoBackendGET/teamsLista todos os times cadastradosBackendGET/teams/:idRetorna o time + análise tática do PythonPythonPOST/analyze-teamRecebe a equipe e retorna métricas
