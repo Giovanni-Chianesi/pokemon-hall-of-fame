@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "Back-end Node.js para o Pokemon Hall of Fame",
   "main": "src/server.ts",
+
+  "type": "commonjs",
   "scripts": {
     "dev": "ts-node-dev --transpile-only --ignore-watch node_modules src/server.ts"
   },
@@ -15,6 +17,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.13",
     "@types/express": "^4.17.17",
+    "@types/node": "^26.6.2",
     "prisma": "^5.22.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.0.0"

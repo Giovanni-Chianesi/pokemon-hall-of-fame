@@ -6,34 +6,41 @@ const ANALYZER_URL = 'http://localhost:8000/analyze-team';
 
 export class TeamService {
   async createTeam(data: any) {
+    const gameTitle = data.gameTitle || 'Pokémon Emerald';
+
+    // Procura se o jogo já existe ou cria um novo
+    let game = await prisma.game.findFirst({
+      where: { title: gameTitle },
+    });
+
+    if (!game) {
+      game = await prisma.game.create({
+        data: {
+          title: gameTitle,
+        },
+      });
+    }
+
     return await prisma.team.create({
       data: {
-        gameId: data.gameId,
         trainerName: data.trainerName,
         notes: data.notes,
+        gameId: game.id,
         pokemons: {
           create: data.pokemons.map((pokemon: any) => ({
-            pokedexNumber: pokemon.pokedexNumber,
-            pokemonName: pokemon.pokemonName,
-            nickname: pokemon.nickname,
-            level: pokemon.level,
-            nature: pokemon.nature,
-            ability: pokemon.ability,
-            heldItem: pokemon.heldItem,
-            customSpriteUrl: pokemon.customSpriteUrl,
-            slotPosition: pokemon.slotPosition,
-            moves: {
-              create: pokemon.moves ? pokemon.moves.map((move: any) => ({
-                moveName: move.moveName,
-                slot: move.slot,
-              })) : [],
-            },
+            pokedexNumber: Number(pokemon.pokedexNumber),
+            pokemonName: pokemon.pokemonName.toLowerCase(),
+            nickname: pokemon.nickname || null,
+            level: Number(pokemon.level) || 50,
+            slotPosition: Number(pokemon.slotPosition),
           })),
         },
       },
       include: {
         game: true,
-        pokemons: { include: { moves: true } },
+        pokemons: {
+          orderBy: { slotPosition: 'asc' },
+        },
       },
     });
   }
@@ -44,14 +51,12 @@ export class TeamService {
         game: true,
         pokemons: {
           orderBy: { slotPosition: 'asc' },
-          include: { moves: { orderBy: { slot: 'asc' } } },
         },
       },
       orderBy: { completedAt: 'desc' },
     });
   }
 
-  // Método para buscar o time + análise em Python
   async getTeamWithAnalysis(teamId: string) {
     const team = await prisma.team.findUnique({
       where: { id: teamId },
@@ -59,7 +64,6 @@ export class TeamService {
         game: true,
         pokemons: {
           orderBy: { slotPosition: 'asc' },
-          include: { moves: true },
         },
       },
     });
@@ -70,9 +74,8 @@ export class TeamService {
 
     let analysis = null;
     try {
-      // Formata a lista de Pokémon para o schema esperado pelo FastAPI
       const payload = {
-        pokemons: team.pokemons.map(p => ({
+        pokemons: team.pokemons.map((p) => ({
           pokemonName: p.pokemonName,
           pokedexNumber: p.pokedexNumber,
         })),
@@ -81,11 +84,15 @@ export class TeamService {
       const response = await axios.post(ANALYZER_URL, payload);
       analysis = response.data;
     } catch (error) {
-      console.error('Aviso: Não foi possível conectar ao serviço de análise Python.');
+      console.error('Erro ao conectar com o microsserviço Python:', error);
     }
 
     return {
-      ...team,
+      id: team.id,
+      trainerName: team.trainerName,
+      notes: team.notes,
+      game: team.game,
+      pokemons: team.pokemons,
       analysis,
     };
   }
