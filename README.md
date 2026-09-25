@@ -139,6 +139,8 @@ A natureza não precisa ser informada: a API usa `Hardy` como padrão. `nickname
 
 ```text
 pokemon-hall-of-fame/
+├── assets/
+│   └── PHOF-LOGO.png          # Identidade visual do Hall da Fama
 ├── analyzer-service/
 │   ├── main.py                 # API FastAPI e lógica de análise
 │   └── requirements.txt        # Dependências Python

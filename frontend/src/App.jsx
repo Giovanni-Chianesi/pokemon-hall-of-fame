@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from './api';
 import { PokemonAutocomplete } from './components/PokemonAutocomplete.jsx';
+import hallLogo from '../../assets/PHOF-LOGO.png';
 import './app.css';
 
 const EMPTY_POKEMON = {
@@ -131,7 +132,7 @@ export function App() {
       <header className="topbar">
         <div className="topbar-inner">
           <a className="brand" href="#inicio" aria-label="Pokémon Hall of Fame, início">
-            <span className="brand-mark">H</span>
+            <img className="brand-logo" src={hallLogo} alt="" />
             <span>HALL OF FAME<span className="brand-subtitle">ARQUIVO DE TREINADORES</span></span>
           </a>
           <nav className="topbar-nav" aria-label="Navegação principal">
@@ -151,10 +152,9 @@ export function App() {
             <h1 id="page-title">Seu nome.<br />Sua equipe.<br /><span>Sua lenda.</span></h1>
             <p className="intro-description">Toda jornada deixa marcas. Aqui, as melhores equipes ficam para a história.</p>
           </div>
-          <div className="intro-stamp" aria-hidden="true">
-            <span>HALL DA FAMA</span>
-            <strong>H</strong>
-            <span>REGISTRO Nº 001</span>
+          <div className="intro-emblem" aria-hidden="true">
+            <div className="intro-logo-frame"><img className="intro-logo" src={hallLogo} alt="" /></div>
+            <span className="intro-emblem-caption">REGISTRO OFICIAL · Nº 001</span>
           </div>
         </section>
 
@@ -203,7 +203,7 @@ export function App() {
                   />
                   <label className="field pokemon-number-field">
                     <span className="visually-hidden">Número na Pokédex</span>
-                    <input type="number" placeholder="# Pokédex" min="1" max="1025" value={pokemon.pokedexNumber} onChange={(event) => handlePokemonChange(index, 'pokedexNumber', event.target.value)} />
+                    <input type="number" placeholder="# Pokédex" min="1" value={pokemon.pokedexNumber} onChange={(event) => handlePokemonChange(index, 'pokedexNumber', event.target.value)} />
                   </label>
                   <label className="field pokemon-nickname-field">
                     <span className="visually-hidden">Apelido opcional</span>
