@@ -32,6 +32,7 @@ export class TeamService {
             pokemonName: pokemon.pokemonName.toLowerCase(),
             nickname: pokemon.nickname || null,
             level: Number(pokemon.level) || 50,
+            nature: pokemon.nature || 'Hardy',
             slotPosition: Number(pokemon.slotPosition),
           })),
         },

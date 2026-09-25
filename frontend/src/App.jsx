@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from './api';
+import { PokemonAutocomplete } from './components/PokemonAutocomplete.jsx';
+import './app.css';
 
 const EMPTY_POKEMON = {
   pokemonName: '',
@@ -8,30 +10,31 @@ const EMPTY_POKEMON = {
   level: 50,
 };
 
+function getErrorMessage(error) {
+  return error.response?.data?.error || error.response?.data?.message || 'Não foi possível conectar ao backend. Confira se a API está rodando.';
+}
+
 export function App() {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Estados do Formulário
+  const [saving, setSaving] = useState(false);
+  const [listError, setListError] = useState('');
+  const [formMessage, setFormMessage] = useState(null);
   const [trainerName, setTrainerName] = useState('');
   const [gameTitle, setGameTitle] = useState('Pokémon Emerald');
   const [notes, setNotes] = useState('');
-  const [pokemons, setPokemons] = useState([
-    { ...EMPTY_POKEMON },
-  ]);
-
-  // Modal / Análise selecionada
+  const [pokemons, setPokemons] = useState([{ ...EMPTY_POKEMON }]);
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+  const [analysisError, setAnalysisError] = useState('');
 
-  // Carregar times cadastrados
   async function loadTeams() {
     try {
-      setLoading(true);
+      setListError('');
       const response = await api.get('/teams');
       setTeams(response.data);
     } catch (error) {
-      console.error('Erro ao buscar times:', error);
+      setListError(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -41,315 +44,262 @@ export function App() {
     loadTeams();
   }, []);
 
-  // Manipular campos do time de Pokémon
-  const handlePokemonChange = (index, field, value) => {
-    const updated = [...pokemons];
-    updated[index][field] = value;
-    setPokemons(updated);
-  };
+  function handlePokemonChange(index, field, value) {
+    setPokemons((current) => current.map((pokemon, position) => (
+      position === index
+        ? { ...pokemon, [field]: value, ...(field === 'pokemonName' ? { pokedexNumber: '' } : {}) }
+        : pokemon
+    )));
+  }
 
-  const addPokemonSlot = () => {
-    if (pokemons.length < 6) {
-      setPokemons([...pokemons, { ...EMPTY_POKEMON }]);
-    }
-  };
+  function handlePokemonSelect(index, pokemonOption) {
+    setPokemons((current) => current.map((pokemon, position) => (
+      position === index
+        ? { ...pokemon, pokemonName: pokemonOption.name, pokedexNumber: pokemonOption.id }
+        : pokemon
+    )));
+  }
 
-  const removePokemonSlot = (index) => {
-    if (pokemons.length > 1) {
-      setPokemons(pokemons.filter((_, i) => i !== index));
-    }
-  };
+  function addPokemonSlot() {
+    setPokemons((current) => current.length < 6 ? [...current, { ...EMPTY_POKEMON }] : current);
+  }
 
-  // Enviar novo time para a API Node.js
-  const handleSubmitTeam = async (e) => {
-    e.preventDefault();
+  function removePokemonSlot(index) {
+    setPokemons((current) => current.length > 1 ? current.filter((_, position) => position !== index) : current);
+  }
 
-    if (!trainerName.trim()) {
-      alert('Por favor, informe o nome do treinador!');
-      return;
-    }
+  async function handleSubmitTeam(event) {
+    event.preventDefault();
+    setFormMessage(null);
 
     const validPokemons = pokemons
-      .filter((p) => p.pokemonName.trim() !== '')
-      .map((p, index) => ({
-        pokemonName: p.pokemonName.toLowerCase().trim(),
-        pokedexNumber: Number(p.pokedexNumber) || 1,
-        nickname: p.nickname,
-        level: Number(p.level) || 50,
-        slotPosition: index + 1,
+      .map((pokemon, index) => ({ pokemon, slotPosition: index + 1 }))
+      .filter(({ pokemon }) => pokemon.pokemonName.trim())
+      .map(({ pokemon, slotPosition }) => ({
+        pokemonName: pokemon.pokemonName.toLowerCase().trim(),
+        pokedexNumber: Number(pokemon.pokedexNumber) || 1,
+        nickname: pokemon.nickname.trim(),
+        level: Number(pokemon.level) || 50,
+        slotPosition,
       }));
 
     if (validPokemons.length === 0) {
-      alert('Adicione pelo menos 1 Pokémon com nome válido!');
+      setFormMessage({ type: 'error', text: 'Adicione pelo menos um Pokémon ao time.' });
       return;
     }
 
     try {
-      // Criação básica do payload (O backend pode criar o jogo dinamicamente ou usar um id mock)
+      setSaving(true);
       await api.post('/teams', {
-        trainerName,
-        gameTitle,
-        notes,
+        trainerName: trainerName.trim(),
+        gameTitle: gameTitle.trim(),
+        notes: notes.trim(),
         pokemons: validPokemons,
       });
 
-      alert('🏆 Time registrado com sucesso no Hall da Fama!');
+      setFormMessage({ type: 'success', text: 'Time registrado no Hall da Fama.' });
       setTrainerName('');
       setNotes('');
       setPokemons([{ ...EMPTY_POKEMON }]);
-      loadTeams();
+      await loadTeams();
     } catch (error) {
-      console.error('Erro ao cadastrar time:', error);
-      alert('Erro ao cadastrar time. Verifique se o backend está rodando.');
+      setFormMessage({ type: 'error', text: getErrorMessage(error) });
+    } finally {
+      setSaving(false);
     }
-  };
+  }
 
-  // Buscar análise de fraquezas em Python
-  const handleFetchAnalysis = async (teamId) => {
+  async function handleFetchAnalysis(teamId) {
     try {
       setLoadingAnalysis(true);
+      setAnalysisError('');
       const response = await api.get(`/teams/${teamId}/analysis`);
       setSelectedAnalysis(response.data);
     } catch (error) {
-      console.error('Erro ao buscar análise:', error);
-      alert('Não foi possível conectar ao serviço de análise Python.');
+      setAnalysisError(getErrorMessage(error));
     } finally {
       setLoadingAnalysis(false);
     }
-  };
+  }
+
+  const pokemonCount = teams.reduce((total, team) => total + (team.pokemons?.length || 0), 0);
+  const completedTeamCount = teams.filter((team) => team.pokemons?.length === 6).length;
+  const gameCount = new Set(teams.map((team) => team.game?.title).filter(Boolean)).size;
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem', fontFamily: 'sans-serif' }}>
-      <header style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <h1>🏆 Pokémon Hall of Fame Tracker</h1>
-        <p>Registre seus times campeões de Pokémon e HackRoms</p>
+    <div className="site-shell">
+      <header className="topbar">
+        <div className="topbar-inner">
+          <a className="brand" href="#inicio" aria-label="Pokémon Hall of Fame, início">
+            <span className="brand-mark">H</span>
+            <span>HALL OF FAME<span className="brand-subtitle">ARQUIVO DE TREINADORES</span></span>
+          </a>
+          <nav className="topbar-nav" aria-label="Navegação principal">
+            <a className="nav-link current" href="#inicio">Início</a>
+            <a className="nav-link" href="#novo-time">Novo time</a>
+            <a className="nav-link" href="#galeria">Hall da Fama</a>
+            <a className="nav-link" href="#sobre">Sobre</a>
+            <a className="topbar-cta" href="#novo-time">Registrar time <span aria-hidden="true">+</span></a>
+          </nav>
+        </div>
       </header>
 
-      {/* --- FORMULÁRIO DE CADASTRO --- */}
-      <section style={{ backgroundColor: '#fff', border: '2px solid #e0e0e0', padding: '1.5rem', borderRadius: '12px', marginBottom: '3rem', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-        <h2>📝 Cadastrar Novo Time Campeão</h2>
+      <main id="inicio" className="page-content">
+        <section className="intro" aria-labelledby="page-title">
+          <div className="intro-copy">
+            <p className="eyebrow"><span className="eyebrow-dot" /> ARQUIVO CENTRAL DE TREINADORES</p>
+            <h1 id="page-title">Seu nome.<br />Sua equipe.<br /><span>Sua lenda.</span></h1>
+            <p className="intro-description">Toda jornada deixa marcas. Aqui, as melhores equipes ficam para a história.</p>
+          </div>
+          <div className="intro-stamp" aria-hidden="true">
+            <span>HALL DA FAMA</span>
+            <strong>H</strong>
+            <span>REGISTRO Nº 001</span>
+          </div>
+        </section>
 
-        <form onSubmit={handleSubmitTeam}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-            <div>
-              <label><strong>Nome do Treinador:</strong></label>
-              <input
-                type="text"
-                placeholder="Ex: Ash Ketchum"
-                value={trainerName}
-                onChange={(e) => setTrainerName(e.target.value)}
-                style={{ width: '100%', padding: '0.6rem', marginTop: '0.3rem', borderRadius: '6px', border: '1px solid #ccc' }}
-              />
+        <section className="collection-stats" aria-label="Painel da coleção">
+          <article className="stat-card"><span className="stat-kicker">01 / REGISTROS</span><strong className="stat-number">{teams.length.toString().padStart(2, '0')}</strong><span className="stat-label">times no Hall da Fama</span></article>
+          <article className="stat-card"><span className="stat-kicker">02 / ELENCO</span><strong className="stat-number">{pokemonCount.toString().padStart(2, '0')}</strong><span className="stat-label">Pokémon registrados</span></article>
+          <article className="stat-card"><span className="stat-kicker">03 / CONQUISTAS</span><strong className="stat-number">{completedTeamCount.toString().padStart(2, '0')}</strong><span className="stat-label">equipes completas · {gameCount} {gameCount === 1 ? 'jogo' : 'jogos'}</span></article>
+        </section>
+
+        <section id="novo-time" className="form-section" aria-labelledby="form-title">
+          <div className="section-heading">
+            <div><p className="eyebrow">NOVO REGISTRO <span className="heading-index">/ 01</span></p><h2 id="form-title">Registre uma equipe</h2></div>
+            <span className="section-aside">Sua próxima lenda começa aqui</span>
+          </div>
+
+          <form className="team-form" onSubmit={handleSubmitTeam}>
+            <div className="form-grid form-grid-two">
+              <label className="field">
+                <span>Nome do treinador</span>
+                <input type="text" placeholder="Ex.: Ash Ketchum" value={trainerName} onChange={(event) => setTrainerName(event.target.value)} required maxLength={80} />
+              </label>
+              <label className="field">
+                <span>Jogo ou ROM hack</span>
+                <input type="text" placeholder="Ex.: Pokémon Emerald" value={gameTitle} onChange={(event) => setGameTitle(event.target.value)} required maxLength={100} />
+              </label>
+            </div>
+            <label className="field notes-field">
+              <span>Notas da jornada <span className="field-optional">OPCIONAL</span></span>
+              <textarea placeholder="Uma estratégia inesquecível, um desafio especial..." value={notes} onChange={(event) => setNotes(event.target.value)} rows="2" maxLength={500} />
+            </label>
+
+            <div className="roster-heading">
+              <div><h3>Equipe campeã</h3><p>Inclua de 1 a 6 integrantes.</p></div>
+              <span className="roster-count">{pokemons.length} / 6</span>
             </div>
 
-            <div>
-              <label><strong>Jogo / HackRom:</strong></label>
-              <input
-                type="text"
-                placeholder="Ex: Pokémon FireRed / Radical Red"
-                value={gameTitle}
-                onChange={(e) => setGameTitle(e.target.value)}
-                style={{ width: '100%', padding: '0.6rem', marginTop: '0.3rem', borderRadius: '6px', border: '1px solid #ccc' }}
-              />
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label><strong>Observações / Notas da Run:</strong></label>
-            <input
-              type="text"
-              placeholder="Ex: Zerado sem itens no meio de batalha!"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              style={{ width: '100%', padding: '0.6rem', marginTop: '0.3rem', borderRadius: '6px', border: '1px solid #ccc' }}
-            />
-          </div>
-
-          <h3>⚡ Integrantes do Time (Até 6)</h3>
-          
-          <div style={{ display: 'grid', gap: '1rem', marginBottom: '1rem' }}>
-            {pokemons.map((pokemon, index) => (
-              <div key={index} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', backgroundColor: '#f8f9fa', padding: '0.8rem', borderRadius: '8px', border: '1px solid #eee' }}>
-                <span style={{ fontWeight: 'bold', width: '25px' }}>#{index + 1}</span>
-
-                <input
-                  type="text"
-                  placeholder="Nome do Pokémon (ex: pikachu)"
-                  value={pokemon.pokemonName}
-                  onChange={(e) => handlePokemonChange(index, 'pokemonName', e.target.value)}
-                  style={{ flex: 2, padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-
-                <input
-                  type="number"
-                  placeholder="Nº PokéDex"
-                  value={pokemon.pokedexNumber}
-                  onChange={(e) => handlePokemonChange(index, 'pokedexNumber', e.target.value)}
-                  style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-
-                <input
-                  type="text"
-                  placeholder="Apelido (opcional)"
-                  value={pokemon.nickname}
-                  onChange={(e) => handlePokemonChange(index, 'nickname', e.target.value)}
-                  style={{ flex: 1.5, padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-
-                <input
-                  type="number"
-                  placeholder="Nível"
-                  value={pokemon.level}
-                  onChange={(e) => handlePokemonChange(index, 'level', e.target.value)}
-                  style={{ width: '70px', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-
-                {pokemons.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removePokemonSlot(index)}
-                    style={{ backgroundColor: '#ff4d4f', color: '#fff', border: 'none', borderRadius: '4px', padding: '0.5rem 0.8rem', cursor: 'pointer' }}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {pokemons.length < 6 && (
-            <button
-              type="button"
-              onClick={addPokemonSlot}
-              style={{ backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.6rem 1.2rem', cursor: 'pointer', marginBottom: '1.5rem', fontWeight: 'bold' }}
-            >
-              + Adicionar Pokémon
-            </button>
-          )}
-
-          <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '1.5rem 0' }} />
-
-          <button
-            type="submit"
-            style={{ width: '100%', backgroundColor: '#007bff', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer' }}
-          >
-            Salvar Time no Hall da Fama
-          </button>
-        </form>
-      </section>
-
-      {/* --- LISTAGEM DE TIMES --- */}
-      <section>
-        <h2>🏅 Galeria de Times Campeões</h2>
-
-        {loading ? (
-          <p>Carregando times do banco de dados...</p>
-        ) : teams.length === 0 ? (
-          <p>Nenhum time registrado ainda. Cadastre o seu primeiro time acima!</p>
-        ) : (
-          <div style={{ display: 'grid', gap: '1.5rem', marginTop: '1rem' }}>
-            {teams.map((team) => (
-              <div
-                key={team.id}
-                style={{
-                  border: '1px solid #ddd',
-                  borderRadius: '10px',
-                  padding: '1.2rem',
-                  backgroundColor: '#fff',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <h3 style={{ margin: 0 }}>Treinador: {team.trainerName}</h3>
-                    <span style={{ color: '#666', fontSize: '0.9rem' }}>🎮 {team.game?.title || 'Jogo Não Especificado'}</span>
-                  </div>
-                  <button
-                    onClick={() => handleFetchAnalysis(team.id)}
-                    style={{ backgroundColor: '#17a2b8', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                  >
-                    🔍 Analisar Fraquezas (Python)
-                  </button>
+            <div className="pokemon-fields">
+              {pokemons.map((pokemon, index) => (
+                <div className="pokemon-row" key={index}>
+                  <span className="pokemon-position">{String(index + 1).padStart(2, '0')}</span>
+                  <PokemonAutocomplete
+                    index={index}
+                    value={pokemon.pokemonName}
+                    onChange={(value) => handlePokemonChange(index, 'pokemonName', value)}
+                    onSelect={(option) => handlePokemonSelect(index, option)}
+                  />
+                  <label className="field pokemon-number-field">
+                    <span className="visually-hidden">Número na Pokédex</span>
+                    <input type="number" placeholder="# Pokédex" min="1" max="1025" value={pokemon.pokedexNumber} onChange={(event) => handlePokemonChange(index, 'pokedexNumber', event.target.value)} />
+                  </label>
+                  <label className="field pokemon-nickname-field">
+                    <span className="visually-hidden">Apelido opcional</span>
+                    <input type="text" placeholder="Apelido" value={pokemon.nickname} onChange={(event) => handlePokemonChange(index, 'nickname', event.target.value)} maxLength={40} />
+                  </label>
+                  <label className="field pokemon-level-field">
+                    <span className="visually-hidden">Nível</span>
+                    <input type="number" aria-label={`Nível do Pokémon ${index + 1}`} min="1" max="100" placeholder="Nv." value={pokemon.level} onChange={(event) => handlePokemonChange(index, 'level', event.target.value)} />
+                  </label>
+                  {pokemons.length > 1 && <button className="remove-pokemon" type="button" onClick={() => removePokemonSlot(index)} title="Remover Pokémon" aria-label={`Remover Pokémon ${index + 1}`}>×</button>}
                 </div>
+              ))}
+            </div>
 
-                {team.notes && <p style={{ fontStyle: 'italic', color: '#555', marginTop: '0.5rem' }}>"{team.notes}"</p>}
+            {pokemons.length < 6 && <button className="add-pokemon" type="button" onClick={addPokemonSlot}><span aria-hidden="true">+</span> Adicionar Pokémon</button>}
 
-                <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', marginTop: '1rem' }}>
-                  {team.pokemons?.map((pokemon) => (
-                    <div
-                      key={pokemon.id || pokemon.slotPosition}
-                      style={{
-                        border: '1px solid #eee',
-                        borderRadius: '8px',
-                        padding: '0.5rem',
-                        textAlign: 'center',
-                        backgroundColor: '#f8f9fa',
-                        minWidth: '110px',
-                      }}
-                    >
-                      <img
-                        src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.pokedexNumber || 1}.png`}
-                        alt={pokemon.pokemonName}
-                        style={{ width: '70px', height: '70px' }}
-                      />
-                      <p style={{ margin: '0.2rem 0', fontWeight: 'bold', textTransform: 'capitalize' }}>
-                        {pokemon.nickname ? `${pokemon.nickname}` : pokemon.pokemonName}
-                      </p>
-                      {pokemon.nickname && <small style={{ display: 'block', color: '#777', textTransform: 'capitalize' }}>({pokemon.pokemonName})</small>}
-                      <span style={{ fontSize: '0.8rem', backgroundColor: '#e2e8f0', padding: '0.2rem 0.4rem', borderRadius: '4px', marginTop: '0.3rem', display: 'inline-block' }}>
-                        Lv. {pokemon.level}
-                      </span>
+            {formMessage && <p className={`form-message ${formMessage.type}`} role="status">{formMessage.text}</p>}
+
+            <div className="form-footer">
+              <span className="form-footnote">Natureza padrão: Hardy</span>
+              <button className="submit-button" type="submit" disabled={saving}>
+                {saving ? 'Registrando...' : 'Salvar no Hall da Fama'} <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section id="galeria" className="gallery-section" aria-labelledby="gallery-title">
+          <div className="section-heading gallery-heading">
+            <div><p className="eyebrow">REGISTROS DA COMUNIDADE <span className="heading-index">/ 02</span></p><h2 id="gallery-title">Galeria de campeões</h2></div>
+            <span className="section-aside">{teams.length} {teams.length === 1 ? 'jornada' : 'jornadas'}</span>
+          </div>
+
+          {loading && <div className="empty-state"><span className="loading-mark" /> Carregando registros...</div>}
+          {!loading && listError && <div className="empty-state error-state"><p>{listError}</p><button className="text-button" type="button" onClick={loadTeams}>Tentar novamente</button></div>}
+          {!loading && !listError && teams.length === 0 && <div className="empty-state"><span className="empty-star" aria-hidden="true">✳</span><p>Ainda não há equipes registradas.<br />Sua jornada pode inaugurar a galeria.</p></div>}
+
+          {!loading && !listError && teams.length > 0 && (
+            <div className="team-list">
+              {teams.map((team) => (
+                <article className="team-entry" key={team.id}>
+                  <div className="team-entry-top">
+                    <div>
+                      <p className="team-game">{team.game?.title || 'Jogo não especificado'}</p>
+                      <h3>{team.trainerName}</h3>
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* --- MODAL DA ANÁLISE PYTHON --- */}
-      {selectedAnalysis && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: '#fff', padding: '2rem', borderRadius: '12px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
-            <h2>📊 Análise do Time (Serviço FastAPI)</h2>
-            <p><strong>Treinador:</strong> {selectedAnalysis.trainerName}</p>
-
-            {selectedAnalysis.analysis ? (
-              <div>
-                <p><strong>Total de Pokémon analisados:</strong> {selectedAnalysis.analysis.total_pokemons}</p>
-
-                {selectedAnalysis.analysis.vulnerabilities?.length > 0 && (
-                  <div style={{ backgroundColor: '#fff3cd', color: '#856404', padding: '0.8rem', borderRadius: '6px', margin: '1rem 0' }}>
-                    ⚠️ <strong>Vulnerabilidades Críticas (3+ Pokémon fracos):</strong>
-                    <ul style={{ margin: '0.5rem 0 0 1.2rem', padding: 0 }}>
-                      {selectedAnalysis.analysis.vulnerabilities.map((type) => (
-                        <li key={type} style={{ textTransform: 'capitalize' }}>Tipo {type}</li>
-                      ))}
-                    </ul>
+                    <button className="analysis-button" type="button" onClick={() => handleFetchAnalysis(team.id)} disabled={loadingAnalysis}>
+                      {loadingAnalysis ? 'Analisando...' : 'Analisar equipe'} <span aria-hidden="true">↗</span>
+                    </button>
                   </div>
+                  {team.notes && <p className="team-notes">“{team.notes}”</p>}
+                  <div className="team-roster">
+                    {team.pokemons?.map((pokemon) => (
+                      <div className="roster-pokemon" key={pokemon.id || pokemon.slotPosition}>
+                        <img src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.pokedexNumber || 1}.png`} alt="" loading="lazy" />
+                        <div><strong>{pokemon.nickname || pokemon.pokemonName}</strong><span>{pokemon.nickname && `${pokemon.pokemonName} · `}Nv. {pokemon.level}</span></div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section id="sobre" className="about-section" aria-labelledby="about-title">
+          <div><p className="eyebrow">SOBRE O ARQUIVO <span className="heading-index">/ 03</span></p><h2 id="about-title">Feito de jornadas.<br /><span>Guardado para sempre.</span></h2></div>
+          <p>O Hall da Fama reúne equipes de jogos principais e ROM hacks em um só lugar. Cada registro preserva quem treinou, por onde passou e quem esteve ao seu lado.</p>
+          <span className="about-seal" aria-hidden="true">H<br /><small>OF</small></span>
+        </section>
+      </main>
+
+      <footer className="site-footer"><span>POKÉMON HALL OF FAME</span><span>FEITO PARA CELEBRAR CADA JORNADA</span></footer>
+
+      {analysisError && <div className="toast-error" role="alert">{analysisError}<button type="button" onClick={() => setAnalysisError('')} aria-label="Fechar aviso">×</button></div>}
+
+      {selectedAnalysis && (
+        <div className="modal-backdrop" onClick={() => setSelectedAnalysis(null)}>
+          <section className="analysis-modal" role="dialog" aria-modal="true" aria-labelledby="analysis-title" onClick={(event) => event.stopPropagation()}>
+            <button className="modal-close" type="button" onClick={() => setSelectedAnalysis(null)} aria-label="Fechar análise">×</button>
+            <p className="eyebrow">RELATÓRIO TÁTICO</p>
+            <h2 id="analysis-title">Análise da equipe</h2>
+            <p className="analysis-trainer">Treinador <strong>{selectedAnalysis.trainerName}</strong></p>
+            {selectedAnalysis.analysis ? (
+              <>
+                <p className="analysis-total">{selectedAnalysis.analysis.total_pokemons} Pokémon analisados</p>
+                {selectedAnalysis.analysis.vulnerabilities?.length > 0 && (
+                  <div className="weakness-warning"><strong>Vulnerabilidades críticas</strong><span>{selectedAnalysis.analysis.vulnerabilities.map((type) => type).join(', ')}</span></div>
                 )}
-
-                <h4>Resumo de Fraquezas por Tipo:</h4>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {Object.entries(selectedAnalysis.analysis.team_weaknesses || {}).map(([type, count]) => (
-                    <span key={type} style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '0.3rem 0.6rem', borderRadius: '4px', fontSize: '0.85rem', textTransform: 'capitalize' }}>
-                      {type}: +{count}
-                    </span>
-                  ))}
+                <div className="analysis-columns">
+                  <div><h3>Fraquezas</h3><div className="type-list">{Object.entries(selectedAnalysis.analysis.team_weaknesses || {}).map(([type, count]) => <span className="type-chip weakness" key={type}>{type} <b>{count}</b></span>)}</div></div>
+                  <div><h3>Resistências</h3><div className="type-list">{Object.entries(selectedAnalysis.analysis.team_resistances || {}).map(([type, count]) => <span className="type-chip resistance" key={type}>{type} <b>{count}</b></span>)}</div></div>
                 </div>
-              </div>
-            ) : (
-              <p style={{ color: '#dc3545' }}>Não foi possível carregar os dados de análise do Python.</p>
-            )}
-
-            <button
-              onClick={() => setSelectedAnalysis(null)}
-              style={{ marginTop: '1.5rem', backgroundColor: '#6c757d', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '6px', cursor: 'pointer', width: '100%', fontWeight: 'bold' }}
-            >
-              Fechar Análise
-            </button>
-          </div>
+              </>
+            ) : <p className="analysis-unavailable">O serviço de análise não retornou dados para esta equipe.</p>}
+          </section>
         </div>
       )}
     </div>

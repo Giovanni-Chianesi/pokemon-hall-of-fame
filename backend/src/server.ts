@@ -10,7 +10,10 @@ app.use(express.json());
 
 app.post('/api/teams', teamController.create);
 app.get('/api/teams', teamController.index);
+app.get('/api/teams/:id/analysis', teamController.getAnalysis);
 
-app.listen(5173, () => {
-  console.log('⚡ API Pokémon rodando em http://localhost:5173');
+const port = Number(process.env.PORT) || 3333;
+
+app.listen(port, () => {
+  console.log(`API Pokémon rodando em http://localhost:${port}`);
 });
