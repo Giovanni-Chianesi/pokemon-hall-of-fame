@@ -11,6 +11,6 @@ app.use(express.json());
 app.post('/api/teams', teamController.create);
 app.get('/api/teams', teamController.index);
 
-app.listen(3333, () => {
-  console.log('⚡ API Pokémon rodando em http://localhost:3333');
+app.listen(5173, () => {
+  console.log('⚡ API Pokémon rodando em http://localhost:5173');
 });
